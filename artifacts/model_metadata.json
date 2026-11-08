@@ -1,0 +1,145 @@
+{
+    "model_name": "LogisticRegression",
+    "model_version": "1.0.0",
+    "artifact_filename": "churn_pipeline.joblib",
+    "created_at_utc": "2026-11-08T06:16:15.790591+00:00",
+    "target_column": "Churn",
+    "target_mapping": {
+        "0": "retained",
+        "1": "churned"
+    },
+    "feature_columns": [
+        "tenure",
+        "MonthlyCharges",
+        "TotalCharges",
+        "Partner",
+        "Dependents",
+        "PhoneService",
+        "MultipleLines",
+        "InternetService",
+        "OnlineSecurity",
+        "OnlineBackup",
+        "DeviceProtection",
+        "TechSupport",
+        "StreamingTV",
+        "StreamingMovies",
+        "Contract",
+        "PaperlessBilling",
+        "PaymentMethod"
+    ],
+    "numeric_features": [
+        "tenure",
+        "MonthlyCharges",
+        "TotalCharges"
+    ],
+    "categorical_features": [
+        "Partner",
+        "Dependents",
+        "PhoneService",
+        "MultipleLines",
+        "InternetService",
+        "OnlineSecurity",
+        "OnlineBackup",
+        "DeviceProtection",
+        "TechSupport",
+        "StreamingTV",
+        "StreamingMovies",
+        "Contract",
+        "PaperlessBilling",
+        "PaymentMethod"
+    ],
+    "categorical_values": {
+        "Partner": [
+            "0",
+            "1"
+        ],
+        "Dependents": [
+            "0",
+            "1"
+        ],
+        "PhoneService": [
+            "0",
+            "1"
+        ],
+        "MultipleLines": [
+            "0",
+            "1"
+        ],
+        "InternetService": [
+            "DSL",
+            "Fiber-optic"
+        ],
+        "OnlineSecurity": [
+            "0",
+            "1"
+        ],
+        "OnlineBackup": [
+            "0",
+            "1"
+        ],
+        "DeviceProtection": [
+            "0",
+            "1"
+        ],
+        "TechSupport": [
+            "0",
+            "1"
+        ],
+        "StreamingTV": [
+            "0",
+            "1"
+        ],
+        "StreamingMovies": [
+            "0",
+            "1"
+        ],
+        "Contract": [
+            "Month-to-month",
+            "One-year",
+            "Two-year"
+        ],
+        "PaperlessBilling": [
+            "0",
+            "1"
+        ],
+        "PaymentMethod": [
+            "Bank-transfer",
+            "Credit-card",
+            "Electronic-check",
+            "Mailed-check"
+        ]
+    },
+    "model_classes": [
+        0,
+        1
+    ],
+    "training_rows": 5625,
+    "training_data_sha256": "ba638169b896a1e61aff65b7183704b75a2f3cfd5b831138f1f083296839436a",
+    "python_version": "3.12.0",
+    "scikit_learn_version": "1.9.1",
+    "selection_basis": "Provisional development choice based on cross-validation F1 and recall.",
+    "threshold": 0.5,
+    "threshold_status": "Provisional technical default; not approved as an operational policy.",
+    "final_test_metrics": {
+        "accuracy": 0.798862828713575,
+        "precision": 0.6374622356495468,
+        "recall": 0.5641711229946524,
+        "f1": 0.5985815602836879,
+        "roc_auc": 0.8348380450481697,
+        "pr_auc": 0.624723165259992,
+        "brier_score": 0.14041831803425756,
+        "threshold": 0.5,
+        "threshold_status": "provisional_not_business_approved",
+        "true_negatives": 913,
+        "false_positives": 120,
+        "false_negatives": 163,
+        "true_positives": 211,
+        "test_rows": 1407
+    },
+    "limitations": [
+        "Predictions are estimates, not guarantees.",
+        "Probability calibration has not been independently approved.",
+        "The operating threshold requires business validation.",
+        "Final test metrics describe this held-out dataset only."
+    ]
+}

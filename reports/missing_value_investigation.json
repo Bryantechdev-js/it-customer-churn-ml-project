@@ -1,0 +1,26 @@
+{
+    "missing_internet_service_rows": 1520,
+    "related_feature_distributions": {
+        "PhoneService": {
+            "1": 1520
+        },
+        "OnlineSecurity": {
+            "0": 1520
+        },
+        "OnlineBackup": {
+            "0": 1520
+        },
+        "DeviceProtection": {
+            "0": 1520
+        },
+        "TechSupport": {
+            "0": 1520
+        },
+        "StreamingTV": {
+            "0": 1520
+        },
+        "StreamingMovies": {
+            "0": 1520
+        }
+    }
+}

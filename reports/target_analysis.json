@@ -1,0 +1,11 @@
+{
+    "total_customers": 7032,
+    "class_counts": {
+        "0": 5163,
+        "1": 1869
+    },
+    "class_percentages": {
+        "0": 73.4215,
+        "1": 26.5785
+    }
+}

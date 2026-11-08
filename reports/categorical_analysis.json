@@ -1,0 +1,158 @@
+{
+    "Partner": [
+        {
+            "Partner": 0,
+            "customers": 3641,
+            "churned": 1199,
+            "churn_rate": 0.3293,
+            "churn_rate_percent": 32.93
+        },
+        {
+            "Partner": 1,
+            "customers": 3391,
+            "churned": 670,
+            "churn_rate": 0.1976,
+            "churn_rate_percent": 19.76
+        }
+    ],
+    "Dependents": [
+        {
+            "Dependents": 0,
+            "customers": 4933,
+            "churned": 1543,
+            "churn_rate": 0.3128,
+            "churn_rate_percent": 31.28
+        },
+        {
+            "Dependents": 1,
+            "customers": 2099,
+            "churned": 326,
+            "churn_rate": 0.1553,
+            "churn_rate_percent": 15.53
+        }
+    ],
+    "PhoneService": [
+        {
+            "PhoneService": 0,
+            "customers": 680,
+            "churned": 170,
+            "churn_rate": 0.25,
+            "churn_rate_percent": 25.0
+        },
+        {
+            "PhoneService": 1,
+            "customers": 6352,
+            "churned": 1699,
+            "churn_rate": 0.2675,
+            "churn_rate_percent": 26.75
+        }
+    ],
+    "MultipleLines": [
+        {
+            "MultipleLines": 0,
+            "customers": 4065,
+            "churned": 1019,
+            "churn_rate": 0.2507,
+            "churn_rate_percent": 25.07
+        },
+        {
+            "MultipleLines": 1,
+            "customers": 2967,
+            "churned": 850,
+            "churn_rate": 0.2865,
+            "churn_rate_percent": 28.65
+        }
+    ],
+    "InternetService": [
+        {
+            "InternetService": "DSL",
+            "customers": 2416,
+            "churned": 459,
+            "churn_rate": 0.19,
+            "churn_rate_percent": 19.0
+        },
+        {
+            "InternetService": "Fiber-optic",
+            "customers": 3096,
+            "churned": 1297,
+            "churn_rate": 0.4189,
+            "churn_rate_percent": 41.89
+        },
+        {
+            "InternetService": NaN,
+            "customers": 1520,
+            "churned": 113,
+            "churn_rate": 0.0743,
+            "churn_rate_percent": 7.43
+        }
+    ],
+    "Contract": [
+        {
+            "Contract": "Month-to-month",
+            "customers": 3875,
+            "churned": 1655,
+            "churn_rate": 0.4271,
+            "churn_rate_percent": 42.71
+        },
+        {
+            "Contract": "One-year",
+            "customers": 1472,
+            "churned": 166,
+            "churn_rate": 0.1128,
+            "churn_rate_percent": 11.28
+        },
+        {
+            "Contract": "Two-year",
+            "customers": 1685,
+            "churned": 48,
+            "churn_rate": 0.0285,
+            "churn_rate_percent": 2.85
+        }
+    ],
+    "PaperlessBilling": [
+        {
+            "PaperlessBilling": 0,
+            "customers": 2864,
+            "churned": 469,
+            "churn_rate": 0.1638,
+            "churn_rate_percent": 16.38
+        },
+        {
+            "PaperlessBilling": 1,
+            "customers": 4168,
+            "churned": 1400,
+            "churn_rate": 0.3359,
+            "churn_rate_percent": 33.59
+        }
+    ],
+    "PaymentMethod": [
+        {
+            "PaymentMethod": "Bank-transfer",
+            "customers": 1542,
+            "churned": 258,
+            "churn_rate": 0.1673,
+            "churn_rate_percent": 16.73
+        },
+        {
+            "PaymentMethod": "Credit-card",
+            "customers": 1521,
+            "churned": 232,
+            "churn_rate": 0.1525,
+            "churn_rate_percent": 15.25
+        },
+        {
+            "PaymentMethod": "Electronic-check",
+            "customers": 2365,
+            "churned": 1071,
+            "churn_rate": 0.4529,
+            "churn_rate_percent": 45.29
+        },
+        {
+            "PaymentMethod": "Mailed-check",
+            "customers": 1604,
+            "churned": 308,
+            "churn_rate": 0.192,
+            "churn_rate_percent": 19.2
+        }
+    ]
+}

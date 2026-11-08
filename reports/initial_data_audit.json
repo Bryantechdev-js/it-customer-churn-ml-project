@@ -1,0 +1,75 @@
+{
+    "audit_timestamp_utc": "2026-11-06T02:31:50.057982+00:00",
+    "dataset": {
+        "filename": "it_customer_churn.csv",
+        "sha256": "ba638169b896a1e61aff65b7183704b75a2f3cfd5b831138f1f083296839436a",
+        "rows": 7032,
+        "columns": 23,
+        "duplicate_rows": 0
+    },
+    "schema": {
+        "valid": true,
+        "missing_columns": [],
+        "unexpected_columns": [],
+        "actual_columns": [
+            "gender",
+            "SeniorCitizen",
+            "Partner",
+            "Dependents",
+            "tenure",
+            "PhoneService",
+            "MultipleLines",
+            "InternetService",
+            "OnlineSecurity",
+            "OnlineBackup",
+            "DeviceProtection",
+            "TechSupport",
+            "StreamingTV",
+            "StreamingMovies",
+            "Contract",
+            "PaperlessBilling",
+            "PaymentMethod",
+            "MonthlyCharges",
+            "TotalCharges",
+            "Churn",
+            "Customer type",
+            "Custom value",
+            "Index"
+        ]
+    },
+    "missing_values": {
+        "InternetService": 1520
+    },
+    "target": {
+        "column": "Churn",
+        "valid_binary_target": true,
+        "class_counts": {
+            "0": 5163,
+            "1": 1869
+        },
+        "class_percentages": {
+            "0": 73.4215,
+            "1": 26.5785
+        }
+    },
+    "feature_checks": {
+        "customer_type_derived_from_tenure": {
+            "checked": true,
+            "matches": true
+        },
+        "custom_value_derived_from_total_charges": {
+            "checked": true,
+            "matches": true
+        },
+        "index_is_sequential": {
+            "checked": true,
+            "matches": true
+        }
+    },
+    "limitations": [
+        "No observation timestamp is available.",
+        "The 30-day future churn label definition is unverified.",
+        "Dataset provenance and licence require verification.",
+        "InternetService missing values require investigation."
+    ]
+}
