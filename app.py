@@ -54,6 +54,15 @@ METADATA_PATH = ROOT / "artifacts" / "model_metadata.json"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_BATCH_ROWS = 10_000
 
+INTERNET_ADDON_UI_FIELDS = (
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+)
+
 
 # ============================================================
 # 2. DESIGN SYSTEM
@@ -792,8 +801,12 @@ def show_prediction():
 
             internet_service = st.selectbox(
                 "Internet service",
-                ["DSL", "Fiber optic", "Not recorded"],
-                help="Not recorded is mapped to the source dataset's missing category.",
+                ["DSL", "Fiber optic", "No internet service"],
+                help=(
+                    "Mapped to the source data's missing InternetService "
+                    "category; confirm that missing means no service for "
+                    "your data source."
+                ),
             )
 
             online_security = st.selectbox(
@@ -872,7 +885,6 @@ def show_prediction():
         )
 
     if submitted:
-
         customer_features = {
             "tenure": int(tenure),
             "MonthlyCharges": float(monthly_charges),
@@ -896,6 +908,28 @@ def show_prediction():
             "PaperlessBilling": paperless_billing,
             "PaymentMethod": payment_method,
         }
+
+        # Canonicalize unavailable services from the explicit parent choices.
+        # This avoids asking users to manually set every dependent service to
+        # an unavailable value. The adjustments are shown before the result.
+        adjustments = []
+        if phone_service == "No":
+            customer_features["MultipleLines"] = "No phone service"
+            adjustments.append("Multiple lines set to unavailable")
+
+        if internet_service == "No internet service":
+            for feature in INTERNET_ADDON_UI_FIELDS:
+                customer_features[feature] = "No internet service"
+            adjustments.append(
+                "Internet add-ons set to unavailable"
+            )
+
+        if adjustments:
+            st.info(
+                "Applied service constraints: "
+                + "; ".join(adjustments)
+                + "."
+            )
 
         st.session_state.pop(
             "last_customer_prediction",

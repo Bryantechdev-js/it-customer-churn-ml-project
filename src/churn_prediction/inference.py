@@ -285,6 +285,24 @@ def _map_yes_no(value, feature_name):
     return mapping[value]
 
 
+def _normalize_internet_service_value(value):
+    """Map known no-internet labels to the model's missing-value category."""
+
+    if pd.isna(value):
+        return np.nan
+
+    normalized = str(value).strip()
+    if normalized.casefold() in {
+        "",
+        "no",
+        "no internet service",
+        "not recorded",
+    }:
+        return np.nan
+
+    return normalized
+
+
 def normalize_ui_customer_features(ui_features):
     """
     Translate the existing Streamlit form labels into
@@ -376,6 +394,10 @@ def normalize_ui_customer_features(ui_features):
     internet_mapping = {
         "DSL": "DSL",
         "Fiber optic": "Fiber-optic",
+        # The training data has a missing-value category here. Map the
+        # explicit UI choice to that learned category. Keep the old UI label
+        # as a compatibility alias for already-integrated callers.
+        "No internet service": np.nan,
         "Not recorded": np.nan,
     }
 
@@ -529,16 +551,9 @@ def validate_feature_frame(data, metadata):
     # InternetService normalization
     # --------------------------------------------------------
 
-    internet_values = result["InternetService"]
-
-    result["InternetService"] = internet_values.map(
-        lambda value: (
-            np.nan
-            if pd.isna(value)
-            or str(value).strip() in ("", "Not recorded")
-            else str(value).strip()
-        )
-    )
+    result["InternetService"] = result[
+        "InternetService"
+    ].map(_normalize_internet_service_value)
 
     # --------------------------------------------------------
     # Other categorical feature validation
@@ -616,20 +631,17 @@ def validate_feature_frame(data, metadata):
 
     if no_internet_mask.any():
         invalid_no_internet = (
-            (result.loc[no_internet_mask, "PhoneService"] != 1)
-            | (
-                result.loc[
-                    no_internet_mask,
-                    INTERNET_ADDON_FEATURES,
-                ].sum(axis=1) != 0
-            )
+            result.loc[
+                no_internet_mask,
+                INTERNET_ADDON_FEATURES,
+            ].sum(axis=1) != 0
         )
 
         if invalid_no_internet.any():
             raise InputValidationError(
-                "For the source dataset's missing InternetService "
-                "category, PhoneService must be 1 and all internet "
-                "add-on features must be 0."
+                "When InternetService is 'No internet service', "
+                "all internet add-on features must be No. "
+                "Phone service is independent and may be Yes or No."
             )
 
     return result
