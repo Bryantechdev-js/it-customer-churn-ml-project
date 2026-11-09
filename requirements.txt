@@ -1,0 +1,9 @@
+# Keep scikit-learn aligned with the version used to export the joblib model.
+scikit-learn==1.9.1
+
+# Runtime dependencies for the Streamlit UI and inference pipeline.
+streamlit>=1.40,<2
+joblib>=1.4,<2
+numpy>=2.0,<3
+pandas>=2.2,<4
+scipy>=1.13,<2

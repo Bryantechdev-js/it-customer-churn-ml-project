@@ -15,11 +15,22 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from churn_prediction.inference import (
-    load_model_bundle,
-    predict_customer,
-    predict_batch,
-)
+try:
+    from churn_prediction.inference import (
+        load_model_bundle,
+        predict_customer,
+        predict_batch,
+    )
+except ModuleNotFoundError as exc:
+    # Streamlit Cloud displays this message in the app UI, so missing runtime
+    # packages are actionable even when the platform redacts its traceback.
+    missing_package = exc.name or "a required package"
+    st.error(
+        f"The inference environment is missing `{missing_package}`. "
+        "Install the packages listed in the project `requirements.txt`, "
+        "then redeploy the app."
+    )
+    st.stop()
 
 
 # ============================================================
