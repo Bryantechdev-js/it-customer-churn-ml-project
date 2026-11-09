@@ -2,11 +2,17 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import streamlit as st
+import streamlit as st  # type: ignore[import-not-found]
+
+# Make the project package importable when Streamlit is launched elsewhere.
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from churn_prediction.inference import (
     load_model_bundle,
@@ -25,8 +31,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-ROOT = Path(__file__).resolve().parent
 
 DATA_PATH = ROOT / "data" / "raw" / "it_customer_churn.csv"
 CV_REPORT_PATH = ROOT / "reports" / "cv_model_comparison.csv"
