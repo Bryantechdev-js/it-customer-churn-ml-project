@@ -9,10 +9,11 @@ from typing import Any
 import pandas as pd
 import streamlit as st  # type: ignore[import-not-found]
 
-# Make the project package importable when Streamlit is launched elsewhere.
+# Make the src-layout project package importable when Streamlit is launched elsewhere.
 ROOT = Path(__file__).resolve().parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 from churn_prediction.inference import (
     load_model_bundle,
