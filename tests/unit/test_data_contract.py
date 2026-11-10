@@ -166,8 +166,8 @@ def test_custom_value_is_derived_from_total_charges(df):
     ).all()
 
 
-def test_missing_internet_service_has_consistent_pattern(df):
-    """Check the observed service-related missingness pattern."""
+def test_missing_internet_service_has_zero_internet_addons(df):
+    """Check the observed data pattern without coupling phone service."""
 
     missing_rows = df[
         df["InternetService"].isna()
@@ -184,8 +184,6 @@ def test_missing_internet_service_has_consistent_pattern(df):
 
     if missing_rows.empty:
         pytest.skip("No missing InternetService rows to inspect.")
-
-    assert (missing_rows["PhoneService"] == 1).all()
 
     for column in service_columns:
         assert (missing_rows[column] == 0).all()

@@ -14,12 +14,16 @@ Never load model files supplied by users.
 """
 
 from functools import lru_cache
+from collections.abc import Mapping
+import hashlib
 import json
+import platform
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
 
 from sklearn.pipeline import Pipeline
 
@@ -39,6 +43,7 @@ ARTIFACT_DIR = PROJECT_ROOT / "artifacts"
 
 MODEL_PATH = ARTIFACT_DIR / "churn_pipeline.joblib"
 METADATA_PATH = ARTIFACT_DIR / "model_metadata.json"
+MAX_BATCH_ROWS = 10_000
 
 BINARY_FEATURES = [
     "Partner",
@@ -78,6 +83,14 @@ class ArtifactError(InferenceError):
 
 class InputValidationError(InferenceError):
     """Raised when customer input does not match the model schema."""
+
+
+def _sha256_file(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 # ============================================================
@@ -123,6 +136,9 @@ def _load_bundle_cached(
             f"Unable to read model metadata: {exc}"
         ) from exc
 
+    if not isinstance(metadata, dict):
+        raise ArtifactError("Model metadata must be a JSON object.")
+
     required_metadata_fields = [
         "model_name",
         "model_version",
@@ -132,6 +148,10 @@ def _load_bundle_cached(
         "model_classes",
         "threshold",
         "categorical_values",
+        "numeric_feature_ranges",
+        "python_version",
+        "scikit_learn_version",
+        "model_artifact_sha256",
     ]
 
     missing_metadata_fields = [
@@ -145,6 +165,34 @@ def _load_bundle_cached(
             "Model metadata is incomplete. Missing: "
             + ", ".join(missing_metadata_fields)
         )
+
+    recorded_sklearn = metadata.get("scikit_learn_version")
+    if recorded_sklearn and recorded_sklearn != sklearn.__version__:
+        raise ArtifactError(
+            "The model was exported with scikit-learn "
+            f"{recorded_sklearn}, but this runtime has "
+            f"{sklearn.__version__}. Install the pinned requirements "
+            "and redeploy."
+        )
+
+    recorded_python = metadata.get("python_version")
+    if recorded_python:
+        recorded_minor = ".".join(str(recorded_python).split(".")[:2])
+        runtime_minor = ".".join(platform.python_version().split(".")[:2])
+        if recorded_minor != runtime_minor:
+            raise ArtifactError(
+                "The model was exported with Python "
+                f"{recorded_minor}, but this runtime has {runtime_minor}. "
+                "Redeploy with the model's Python minor version."
+            )
+
+    expected_artifact_hash = metadata.get("model_artifact_sha256")
+    if expected_artifact_hash:
+        actual_artifact_hash = _sha256_file(model_path)
+        if actual_artifact_hash.lower() != str(expected_artifact_hash).lower():
+            raise ArtifactError(
+                "The model artifact checksum does not match its metadata."
+            )
 
     if metadata["feature_columns"] != FEATURE_COLUMNS:
         raise ArtifactError(
@@ -161,6 +209,52 @@ def _load_bundle_cached(
         raise ArtifactError(
             "Categorical feature schema mismatch."
         )
+
+    categorical_values = metadata["categorical_values"]
+    if not isinstance(categorical_values, dict):
+        raise ArtifactError("Categorical value metadata must be an object.")
+    missing_category_metadata = [
+        feature
+        for feature in CATEGORICAL_FEATURES
+        if feature not in categorical_values
+        or not isinstance(categorical_values[feature], list)
+    ]
+    if missing_category_metadata:
+        raise ArtifactError(
+            "Categorical value metadata is incomplete for: "
+            + ", ".join(missing_category_metadata)
+        )
+
+    numeric_feature_ranges = metadata["numeric_feature_ranges"]
+    if (
+        not isinstance(numeric_feature_ranges, dict)
+        or set(numeric_feature_ranges) != set(NUMERIC_FEATURES)
+    ):
+        raise ArtifactError("Numeric feature range metadata must be an object.")
+    for feature in NUMERIC_FEATURES:
+        feature_range = numeric_feature_ranges.get(feature)
+        if (
+            not isinstance(feature_range, dict)
+            or not {"min", "max"}.issubset(feature_range)
+        ):
+            raise ArtifactError(
+                f"Numeric range metadata is incomplete for {feature}."
+            )
+        try:
+            lower = float(feature_range["min"])
+            upper = float(feature_range["max"])
+        except (TypeError, ValueError) as exc:
+            raise ArtifactError(
+                f"Numeric range metadata is invalid for {feature}."
+            ) from exc
+        if (
+            not np.isfinite([lower, upper]).all()
+            or lower < 0
+            or lower > upper
+        ):
+            raise ArtifactError(
+                f"Numeric range metadata is invalid for {feature}."
+            )
 
     try:
         threshold = float(metadata["threshold"])
@@ -303,6 +397,33 @@ def _normalize_internet_service_value(value):
     return normalized
 
 
+def _out_of_training_range(data, metadata):
+    """Return a row flag and feature names outside development data ranges."""
+
+    flags = np.zeros(len(data), dtype=bool)
+    feature_names = [[] for _ in range(len(data))]
+
+    for feature, feature_range in metadata["numeric_feature_ranges"].items():
+        values = data[feature]
+        outside = (
+            (values < float(feature_range["min"]))
+            | (values > float(feature_range["max"]))
+        )
+        outside_positions = np.flatnonzero(outside.to_numpy())
+        flags[outside_positions] = True
+        for position in outside_positions:
+            feature_names[position].append(feature)
+
+    return (
+        pd.Series(flags, index=data.index, dtype=bool),
+        pd.Series(
+            [";".join(features) for features in feature_names],
+            index=data.index,
+            dtype=object,
+        ),
+    )
+
+
 def normalize_ui_customer_features(ui_features):
     """
     Translate the existing Streamlit form labels into
@@ -310,6 +431,11 @@ def normalize_ui_customer_features(ui_features):
 
     This function does not make predictions.
     """
+
+    if not isinstance(ui_features, Mapping):
+        raise InputValidationError(
+            "Customer input must be a mapping of feature names to values."
+        )
 
     required_ui_fields = [
         "tenure",
@@ -461,6 +587,13 @@ def validate_feature_frame(data, metadata):
     if not isinstance(data, pd.DataFrame):
         raise InputValidationError(
             "Input must be a pandas DataFrame."
+        )
+
+    if data.columns.duplicated().any():
+        duplicates = data.columns[data.columns.duplicated()].tolist()
+        raise InputValidationError(
+            "Input contains duplicate column names: "
+            + ", ".join(map(str, duplicates))
         )
 
     if data.empty:
@@ -667,6 +800,18 @@ def _positive_class_probabilities(model, validated_data):
 
     probabilities = model.predict_proba(validated_data)
 
+    probabilities = np.asarray(probabilities, dtype=float)
+    if (
+        probabilities.ndim != 2
+        or probabilities.shape[0] != len(validated_data)
+        or not np.isfinite(probabilities).all()
+        or (probabilities < 0).any()
+        or (probabilities > 1).any()
+    ):
+        raise ArtifactError(
+            "The model returned invalid class probabilities."
+        )
+
     return probabilities[:, positive_indices[0]]
 
 
@@ -703,6 +848,10 @@ def predict_customer(ui_features):
             validated,
         )[0]
     )
+    out_of_range, out_of_range_features = _out_of_training_range(
+        validated,
+        metadata,
+    )
 
     threshold = float(metadata["threshold"])
 
@@ -720,6 +869,12 @@ def predict_customer(ui_features):
         ),
         "threshold": threshold,
         "threshold_status": metadata["threshold_status"],
+        "out_of_training_range": bool(out_of_range.iloc[0]),
+        "out_of_range_features": (
+            out_of_range_features.iloc[0].split(";")
+            if bool(out_of_range.iloc[0])
+            else []
+        ),
         "model_name": metadata["model_name"],
         "model_version": metadata["model_version"],
     }
@@ -733,6 +888,38 @@ def predict_batch(data):
     Additional input columns are preserved in the output,
     but are never passed to the model.
     """
+
+    if not isinstance(data, pd.DataFrame):
+        raise InputValidationError(
+            "Input must be a pandas DataFrame."
+        )
+
+    if data.empty:
+        raise InputValidationError(
+            "No customer records were provided."
+        )
+
+    if len(data) > MAX_BATCH_ROWS:
+        raise InputValidationError(
+            f"Batch exceeds the maximum of {MAX_BATCH_ROWS:,} rows."
+        )
+
+    reserved_output_columns = {
+        "source_row",
+        "churn_probability",
+        "predicted_class",
+        "risk_assessment",
+        "threshold",
+        "threshold_status",
+        "out_of_training_range",
+        "out_of_range_features",
+    }
+    collisions = sorted(reserved_output_columns.intersection(data.columns))
+    if collisions:
+        raise InputValidationError(
+            "Input contains reserved output columns: "
+            + ", ".join(collisions)
+        )
 
     model, metadata = load_model_bundle()
 
@@ -757,6 +944,13 @@ def predict_batch(data):
     )
 
     results["churn_probability"] = probabilities
+
+    out_of_range, out_of_range_features = _out_of_training_range(
+        validated,
+        metadata,
+    )
+    results["out_of_training_range"] = out_of_range.to_numpy()
+    results["out_of_range_features"] = out_of_range_features.to_numpy()
 
     results["predicted_class"] = (
         probabilities >= threshold

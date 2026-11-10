@@ -35,6 +35,7 @@ from churn_prediction.preprocessing import (
     DATA_PATH,
     TARGET_COLUMN,
     FEATURE_COLUMNS,
+    NUMERIC_FEATURES,
     CATEGORICAL_FEATURES,
     load_dataset,
 )
@@ -256,6 +257,14 @@ def build_metadata(
             .tolist()
         )
 
+    numeric_feature_ranges = {
+        column: {
+            "min": float(development_data[column].min()),
+            "max": float(development_data[column].max()),
+        }
+        for column in NUMERIC_FEATURES
+    }
+
     classifier = model.named_steps["classifier"]
 
     metadata = {
@@ -282,6 +291,7 @@ def build_metadata(
         "categorical_features": CATEGORICAL_FEATURES,
 
         "categorical_values": category_values,
+        "numeric_feature_ranges": numeric_feature_ranges,
 
         "model_classes": [
             int(value)
@@ -341,25 +351,31 @@ def export_artifacts(model, metadata):
         ARTIFACT_DIR / "model_metadata.tmp.json"
     )
 
-    # Save complete preprocessing + classifier pipeline.
+    # Save complete preprocessing + classifier pipeline. The checksum lets
+    # inference detect accidental artifact/metadata mismatches at startup.
     joblib.dump(
         model,
         temporary_model_path,
     )
 
-    temporary_model_path.replace(MODEL_PATH)
+    metadata_to_write = dict(metadata)
+    metadata_to_write["model_artifact_sha256"] = calculate_sha256(
+        temporary_model_path
+    )
 
-    # Save metadata separately for inspection.
+    # Stage metadata before replacing either deployed file. Keep the metadata
+    # checksum tied to the exact serialized bytes above.
     with temporary_metadata_path.open(
         "w",
         encoding="utf-8",
     ) as file:
         json.dump(
-            metadata,
+            metadata_to_write,
             file,
             indent=4,
         )
 
+    temporary_model_path.replace(MODEL_PATH)
     temporary_metadata_path.replace(METADATA_PATH)
 
 

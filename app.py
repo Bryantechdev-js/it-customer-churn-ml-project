@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,10 +18,12 @@ if str(SRC) not in sys.path:
 
 try:
     from churn_prediction.inference import (
+        MAX_BATCH_ROWS,
         load_model_bundle,
         predict_customer,
         predict_batch,
     )
+    from churn_prediction.exporting import safe_csv_bytes
 except ModuleNotFoundError as exc:
     # Streamlit Cloud displays this message in the app UI, so missing runtime
     # packages are actionable even when the platform redacts its traceback.
@@ -47,12 +50,12 @@ st.set_page_config(
 DATA_PATH = ROOT / "data" / "raw" / "it_customer_churn.csv"
 CV_REPORT_PATH = ROOT / "reports" / "cv_model_comparison.csv"
 THRESHOLD_REPORT_PATH = ROOT / "reports" / "threshold_analysis.csv"
+SUBGROUP_REPORT_PATH = ROOT / "reports" / "subgroup_performance.csv"
 
 MODEL_PATH = ROOT / "artifacts" / "churn_pipeline.joblib"
 METADATA_PATH = ROOT / "artifacts" / "model_metadata.json"
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-MAX_BATCH_ROWS = 10_000
 
 INTERNET_ADDON_UI_FIELDS = (
     "OnlineSecurity",
@@ -115,7 +118,7 @@ st.markdown(
         width: 40px;
         height: 40px;
         background: #E5F6F3;
-        color: #087F73;
+        color: #066B61;
         border-radius: 11px;
         font-size: 23px;
         font-weight: 800;
@@ -130,7 +133,7 @@ st.markdown(
 
     .brand-caption {
         font-size: 11px;
-        color: #8795A7;
+        color: #52647A;
         margin-top: 5px;
         letter-spacing: 0.7px;
         text-transform: uppercase;
@@ -144,7 +147,7 @@ st.markdown(
     .eyebrow {
         font-size: 11px;
         font-weight: 750;
-        color: #078477;
+        color: #066B61;
         letter-spacing: 1.4px;
         text-transform: uppercase;
         margin-bottom: 7px;
@@ -172,7 +175,7 @@ st.markdown(
     }
 
     .section-description {
-        color: #8290A2;
+        color: #52647A;
         font-size: 12px;
         margin-bottom: 14px;
     }
@@ -186,7 +189,7 @@ st.markdown(
     }
 
     [data-testid="stMetricLabel"] {
-        color: #718096;
+        color: #52647A;
         font-size: 12px;
         font-weight: 600;
     }
@@ -210,9 +213,9 @@ st.markdown(
 
     .stButton button,
     .stFormSubmitButton button {
-        background: #087F73;
+        background: #066B61;
         color: white;
-        border: 1px solid #087F73;
+        border: 1px solid #066B61;
         border-radius: 8px;
         min-height: 42px;
         font-weight: 650;
@@ -220,9 +223,17 @@ st.markdown(
 
     .stButton button:hover,
     .stFormSubmitButton button:hover {
-        background: #066B61;
-        border-color: #066B61;
+        background: #055A52;
+        border-color: #055A52;
         color: white;
+    }
+
+    .stButton button:focus-visible,
+    .stFormSubmitButton button:focus-visible,
+    [data-baseweb="select"]:focus-within,
+    [data-baseweb="input"]:focus-within {
+        outline: 3px solid #7A4E00;
+        outline-offset: 2px;
     }
 
     [data-testid="stDataFrame"] {
@@ -239,7 +250,7 @@ st.markdown(
     }
 
     .result-label {
-        color: #718096;
+        color: #52647A;
         font-size: 12px;
         font-weight: 650;
         text-transform: uppercase;
@@ -250,7 +261,7 @@ st.markdown(
         border-top: 1px solid #E5EAF0;
         padding-top: 18px;
         margin-top: 40px;
-        color: #94A0AF;
+        color: #52647A;
         font-size: 11px;
         text-align: center;
     }
@@ -286,6 +297,14 @@ def load_threshold_report():
         return None
 
     return pd.read_csv(THRESHOLD_REPORT_PATH)
+
+
+@st.cache_data
+def load_subgroup_report():
+    if not SUBGROUP_REPORT_PATH.exists():
+        return None
+
+    return pd.read_csv(SUBGROUP_REPORT_PATH)
 
 
 @st.cache_data
@@ -401,9 +420,9 @@ def render_prediction_result(result):
             st.markdown("**Predicted outcome**")
 
             if predicted_class == 1:
-                st.error("Churn predicted")
+                st.error("Above provisional review threshold")
             else:
-                st.success("Retention predicted")
+                st.success("Below provisional review threshold")
 
         with col3:
             st.markdown("**Provisional threshold**")
@@ -427,6 +446,14 @@ def render_prediction_result(result):
             "Probability calibration has not been independently approved, "
             "and the decision threshold is not yet approved for business operations."
         )
+
+        if result.get("out_of_training_range"):
+            st.warning(
+                "The following numeric values are outside the range seen "
+                "during model development: "
+                + ", ".join(result.get("out_of_range_features", []))
+                + ". Treat the score as unsupported for this record."
+            )
 
 
 # ============================================================
@@ -736,6 +763,7 @@ def show_prediction():
                 min_value=0,
                 max_value=100,
                 value=12,
+                key="tenure_input",
             )
 
             partner = st.selectbox(
@@ -790,11 +818,13 @@ def show_prediction():
             phone_service = st.selectbox(
                 "Phone service",
                 ["Yes", "No"],
+                key="phone_service",
             )
 
             multiple_lines = st.selectbox(
                 "Multiple lines",
                 ["Yes", "No", "No phone service"],
+                key="multiple_lines",
             )
 
         with col2:
@@ -807,11 +837,13 @@ def show_prediction():
                     "category; confirm that missing means no service for "
                     "your data source."
                 ),
+                key="internet_service",
             )
 
             online_security = st.selectbox(
                 "Online security",
                 ["Yes", "No", "No internet service"],
+                key="online_security",
             )
 
         with col3:
@@ -819,11 +851,13 @@ def show_prediction():
             online_backup = st.selectbox(
                 "Online backup",
                 ["Yes", "No", "No internet service"],
+                key="online_backup",
             )
 
             device_protection = st.selectbox(
                 "Device protection",
                 ["Yes", "No", "No internet service"],
+                key="device_protection",
             )
 
         st.divider()
@@ -838,18 +872,21 @@ def show_prediction():
             tech_support = st.selectbox(
                 "Technical support",
                 ["Yes", "No", "No internet service"],
+                key="tech_support",
             )
 
         with col2:
             streaming_tv = st.selectbox(
                 "Streaming TV",
                 ["Yes", "No", "No internet service"],
+                key="streaming_tv",
             )
 
         with col3:
             streaming_movies = st.selectbox(
                 "Streaming movies",
                 ["Yes", "No", "No internet service"],
+                key="streaming_movies",
             )
 
         st.divider()
@@ -868,6 +905,7 @@ def show_prediction():
                 value=65.0,
                 step=1.0,
                 format="%.2f",
+                key="monthly_charges_input",
             )
 
         with col2:
@@ -877,11 +915,13 @@ def show_prediction():
                 value=780.0,
                 step=1.0,
                 format="%.2f",
+                key="total_charges_input",
             )
 
         submitted = st.form_submit_button(
             "Assess customer risk",
             use_container_width=True,
+            key="predict_customer_submit",
         )
 
     if submitted:
@@ -1011,8 +1051,15 @@ def show_batch_analysis():
         return
 
     st.info(
-        "Upload a CSV containing the original model feature names and categories. "
-        "Extra columns are ignored during scoring."
+        "CSV schema: include all 17 model feature columns. Binary features "
+        "must be 0/1; InternetService accepts DSL, Fiber-optic, or No internet "
+        "service; Contract and PaymentMethod must use the categories listed "
+        "in the data dictionary. Extra columns are excluded from scoring."
+    )
+    st.caption(
+        "Only upload data you are authorized to process. Uploaded records and "
+        "scores remain in this app session so you can review and download them. "
+        "Avoid customer names, contact details, and other unnecessary identifiers."
     )
 
     uploaded_file = st.file_uploader(
@@ -1031,6 +1078,11 @@ def show_batch_analysis():
     if uploaded_file.size > MAX_UPLOAD_BYTES:
         st.error("File exceeds the 10 MB upload limit.")
         return
+
+    upload_digest = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
+    if st.session_state.get("last_batch_input_sha256") != upload_digest:
+        st.session_state.pop("last_batch_result", None)
+        st.session_state["last_batch_input_sha256"] = upload_digest
 
     try:
 
@@ -1188,12 +1240,12 @@ def show_batch_analysis():
         )
 
         col2.metric(
-            "Churn predicted",
+            "Above provisional threshold",
             f"{predicted_churn:,}",
         )
 
         col3.metric(
-            "Retention predicted",
+            "Below provisional threshold",
             f"{predicted_retained:,}",
         )
 
@@ -1202,15 +1254,23 @@ def show_batch_analysis():
             f"{average_score:.2%}",
         )
 
+        out_of_range_count = int(
+            scored_df["out_of_training_range"].sum()
+        )
+        if out_of_range_count:
+            st.warning(
+                f"{out_of_range_count:,} records contain numeric values "
+                "outside the model development ranges. Review those scores "
+                "before use."
+            )
+
         st.dataframe(
             scored_df,
             use_container_width=True,
             hide_index=True,
         )
 
-        csv_bytes = scored_df.to_csv(
-            index=False
-        ).encode("utf-8")
+        csv_bytes = safe_csv_bytes(scored_df)
 
         st.download_button(
             "Download scored customer CSV",
@@ -1475,6 +1535,12 @@ def show_model_health():
                         if isinstance(value, int)
                         else "Unavailable"
                     )
+                elif key == "brier_score":
+                    display_value = (
+                        f"{float(value):.3f}"
+                        if value is not None
+                        else "Unavailable"
+                    )
                 else:
                     display_value = format_percentage(value)
 
@@ -1575,6 +1641,34 @@ def show_model_health():
     else:
         st.warning("Threshold report unavailable.")
 
+    subgroup_report = load_subgroup_report()
+    if subgroup_report is not None:
+        with st.expander(
+            "Descriptive subgroup performance review",
+            expanded=False,
+        ):
+            st.warning(
+                "These aggregate metrics are diagnostic only. They do not "
+                "establish fairness, statistical significance, or legal compliance."
+            )
+            st.dataframe(
+                subgroup_report,
+                use_container_width=True,
+                hide_index=True,
+            )
+            st.download_button(
+                "Download subgroup review",
+                data=subgroup_report.to_csv(index=False).encode("utf-8"),
+                file_name="subgroup_performance.csv",
+                mime="text/csv",
+                key="download_subgroup_report",
+            )
+    else:
+        st.info(
+            "No subgroup review report is available. Run "
+            "scripts/subgroup_audit.py to generate diagnostic metrics."
+        )
+
     render_section("Operational readiness")
 
     readiness = pd.DataFrame(
@@ -1583,6 +1677,7 @@ def show_model_health():
                 "Source dataset",
                 "Cross-validation reports",
                 "Threshold experiments",
+                "Subgroup review report",
                 "Model artifact",
                 "Model metadata",
                 "Local inference service",
@@ -1595,6 +1690,7 @@ def show_model_health():
                 "Available" if DATA_PATH.is_file() else "Missing",
                 "Available" if CV_REPORT_PATH.is_file() else "Missing",
                 "Available" if THRESHOLD_REPORT_PATH.is_file() else "Missing",
+                "Available" if SUBGROUP_REPORT_PATH.is_file() else "Missing",
                 "Available" if MODEL_PATH.is_file() else "Missing",
                 "Available" if METADATA_PATH.is_file() else "Missing",
                 "Available" if model_ok else "Unavailable",
