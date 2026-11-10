@@ -863,9 +863,9 @@ def predict_customer(ui_features):
         "churn_probability": probability,
         "predicted_class": predicted_class,
         "risk_assessment": (
-            "Above provisional threshold"
+            "Churn predicted"
             if predicted_class == 1
-            else "Below provisional threshold"
+            else "No churn predicted"
         ),
         "threshold": threshold,
         "threshold_status": metadata["threshold_status"],
@@ -958,8 +958,8 @@ def predict_batch(data):
 
     results["risk_assessment"] = np.where(
         results["predicted_class"] == 1,
-        "Above provisional threshold",
-        "Below provisional threshold",
+        "Churn predicted",
+        "No churn predicted",
     )
 
     results["threshold"] = threshold

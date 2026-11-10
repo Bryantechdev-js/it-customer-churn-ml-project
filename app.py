@@ -420,9 +420,9 @@ def render_prediction_result(result):
             st.markdown("**Predicted outcome**")
 
             if predicted_class == 1:
-                st.error("Above provisional review threshold")
+                st.error("Churn predicted")
             else:
-                st.success("Below provisional review threshold")
+                st.success("No churn predicted")
 
         with col3:
             st.markdown("**Provisional threshold**")
@@ -1240,12 +1240,12 @@ def show_batch_analysis():
         )
 
         col2.metric(
-            "Above provisional threshold",
+            "Predicted churn",
             f"{predicted_churn:,}",
         )
 
         col3.metric(
-            "Below provisional threshold",
+            "Predicted no churn",
             f"{predicted_retained:,}",
         )
 

@@ -171,6 +171,12 @@ def test_single_prediction_is_finite_and_in_range():
     assert 0.0 <= result["churn_probability"] <= 1.0
     assert result["predicted_class"] in (0, 1)
     assert result["threshold_status"]
+    expected_assessment = (
+        "Churn predicted"
+        if result["predicted_class"] == 1
+        else "No churn predicted"
+    )
+    assert result["risk_assessment"] == expected_assessment
 
 
 def test_single_prediction_flags_values_outside_development_ranges():
